@@ -27,6 +27,11 @@ void compressAndWriteToFile(CodeList *, int *, char *);
 int findCompressedSize(CodeList *codeList, int *charDict, char *text, char *filename);
 int findCompressedDictionarySize(CodeList *codeList, int *charDict);
 int findCompressedTextSize(int *charDict, char *text);
+int compressDictionary(CodeList *, int *, char *, int);
+int compressDictionaryCode(char *, int, int, int);
+int compressText(int *, char *, char *, int);
+int compressTextCode(char *, int, int, int);
+char appendBitsToByte(char *, int, int);
 int numberBits(int);
 int numberBytes(int);
 
@@ -137,10 +142,12 @@ int compressText(int *charDict, char *text, char *compressedText, int index) {
     while(*text != '\0') {
         int key = *compressedText;
         int code = charDict[key];
-
-
+        index = compressTextCode(compressedText, index, currentBit, code);
+        currentBit = (currentBit + numberBits(code)) % 8;
         text += 1;
     }
+
+    return index;
 }
 
 int compressTextCode(char *compressedText, int index, int currentBit, int code) {
@@ -149,10 +156,15 @@ int compressTextCode(char *compressedText, int index, int currentBit, int code) 
     int numberBitsInByte = bitBytes - currentBit;
 
     while(codeBitsLeft >= numberBitsInByte) {
-        appendBitsToByte(compressedText, )
+        int mask = (1 << (codeBitsLeft - numberBitsInByte)) - 1;
+        compressedText[index++] = appendBitsToByte(compressedText + index, code >> (codeBitsLeft - numberBitsInByte), numberBitsInByte);
+        code = code & mask;
+        codeBitsLeft -= numberBitsInByte;
+        numberBitsInByte = 8;
     }
 
-
+    compressedText[index] = appendBitsToByte(compressedText + index, code, codeBitsLeft);
+    return index;
 }
 
 char appendBitsToByte(char *initial, int value, int shift) {
