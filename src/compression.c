@@ -7,7 +7,7 @@
 /*
 * Function declarations
 */
-int findCompressedSize(CodeList *codeList, int *charDict, char *text, char *filename);
+int findCompressedSize(CodeList *codeList, int *charDict, char *text);
 int findCompressedDictionarySize(CodeList *codeList, int *charDict);
 int findCompressedTextSize(int *charDict, char *text);
 int compressDictionary(CodeList *, int *, char *, int);
@@ -70,7 +70,7 @@ int findCompressedSize(CodeList *codeList, int *charDict, char *text) {
 int findCompressedDictionarySize(CodeList *codeList, int *charDict) {
     int size = 1;
     for(int i = 0; i < codeList->size; i++) {
-        int key = codeList->codes[i].key;
+        int key = codeList->root[i].key;
         int keyBytes = numberBytes(key);
         size = size + 2 + keyBytes;
     }
@@ -94,7 +94,7 @@ int compressDictionary(CodeList *codeList, int *charDict, char *compressedText, 
     compressedText[index++] = appendBitsToByte(compressedText + index, codeList->size, bitBytes); // add size of code list
     
     for(int i = 0; i < codeList->size; i++) {
-        int key = codeList->code[i].key;
+        int key = codeList->root[i].key;
         int codeBytes = numberBytes(charDict[key]);
         int compressedValue = charDict[key];
 
@@ -171,4 +171,17 @@ int numberBytes(int value) {
     }
 
     return count;
+}
+
+CodeList * duplicateCodeList(CodeList *codes) {
+    CodeList *copy = malloc(sizeof(CodeList));
+    copy->root = malloc(sizeof(CodeNode) * codes->size);
+    memcpy(copy->root, codes->root, codes->size * sizeof(CodeNode));
+    copy->size = codes->size;
+    return copy;
+}
+
+void freeCodeList(CodeList *codes) {
+    free(codes->root);
+    free(codes);
 }
