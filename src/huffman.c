@@ -49,10 +49,8 @@ void huffmanDecode(char *filename) {
     int intSize = 4;
     char *sizeText = readFromFile(filename, intSize);
     int size = convertStringToInt(sizeText);
-    printf("%d\n", size);
     char *text = readFromFile(filename, size);
     int codesSize = text[intSize];
-    printf("%d\n", codesSize);
     int *charDict = malloc(sizeof(int) * 256);
     memset(charDict, 0, sizeof(int) * 256);
     int index = intSize + 1;
@@ -264,8 +262,11 @@ void freeHuffmanTree(CodeNode *root) {
 int main() {
     
     char *filename = "../test.txt";
-    huffmanDecode("compressed.txt");
+    //huffmanDecode("compressed.txt");
     //huffmanEncode(filename);
 
+    char *text = readFromFile(filename, -1);
+    writeToFile("testing.txt", text, 2000);
+    char *test = readFromFile("testing.txt", 2000);
     return 0;
 }

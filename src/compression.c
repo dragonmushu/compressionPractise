@@ -46,7 +46,7 @@ char * readFromFile(char *filename, int readBytes) {
             fullText = realloc(fullText, sizeof(char) * maxLength);
         }
         currentByte += 1;
-        printf("%d\n", currentValue);
+        printf("%d, %d\n", currentValue, currentByte);
     }
 
     *(fullText + currentLength) = '\0';
@@ -57,12 +57,8 @@ char * readFromFile(char *filename, int readBytes) {
 }
 
 void writeToFile(char *filename, char *text, int size) {
-    for(int i = 0; i < size; i++) {
-        printf("%d\n", text[i]);
-    }
-
     FILE *file = fopen(filename, "w");
-    printf("%d", size);
+
     int results = fwrite(text, sizeof(char), size, file);
     if (results == EOF) {
         printf("Failed to write");
