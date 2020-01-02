@@ -10,6 +10,7 @@
 int findCompressedSize(CodeList *codeList, int *charDict, char *text);
 int findCompressedDictionarySize(CodeList *codeList, int *charDict);
 int findCompressedTextSize(int *charDict, char *text);
+int compressFileSize(int, char *);
 int compressDictionary(CodeList *, int *, char *, int);
 int compressDictionaryCode(char *, int, int, int);
 int compressText(int *, char *, char *, int);
@@ -20,22 +21,32 @@ char appendBitsToByte(char *, int, int);
 /*
 * Function definitions
 */
-char * readFromFile(char *filename) {
+char * readFromFile(char *filename, int readBytes) {
     FILE *fp = fopen(filename, "r");
     int currentLength = 0;
-    int maxLength = 100;
+    int maxLength = 2200;
     char *fullText = malloc(sizeof(char) * maxLength);
+    int currentByte = 0;
+    int currentValue = 0;
 
     if(fp == NULL) {
         printf("Error while opening file %s\n", filename);
     }
 
-    while((*(fullText + currentLength) = fgetc(fp)) != EOF) { 
+    while(currentByte < readBytes || readBytes == -1) {
+        currentValue = fgetc(fp);
+        if(readBytes == -1 && currentValue == EOF) {
+            break; 
+        }
+
+        *(fullText + currentLength) = (char) currentValue;
         currentLength += 1;
         if(currentLength == maxLength) {
             maxLength *= 2;
             fullText = realloc(fullText, sizeof(char) * maxLength);
         }
+        currentByte += 1;
+        printf("%d\n", currentValue);
     }
 
     *(fullText + currentLength) = '\0';
@@ -45,10 +56,14 @@ char * readFromFile(char *filename) {
     return fullText;
 }
 
-void writeToFile(char *filename, char *text) {
-    FILE *file = fopen(filename, "w");
+void writeToFile(char *filename, char *text, int size) {
+    for(int i = 0; i < size; i++) {
+        printf("%d\n", text[i]);
+    }
 
-    int results = fputs(text, file);
+    FILE *file = fopen(filename, "w");
+    printf("%d", size);
+    int results = fwrite(text, sizeof(char), size, file);
     if (results == EOF) {
         printf("Failed to write");
     }
@@ -57,10 +72,14 @@ void writeToFile(char *filename, char *text) {
 
 void compressAndWriteToFile(CodeList *codeList, int *charDict, char *text, char *filename) {
     int size = findCompressedSize(codeList, charDict, text);
+    int intSize = 4;
+    size += intSize;
     char compressedText[size];
-    int index = compressDictionary(codeList, charDict, &compressedText, 0);
-    index = compressText(charDict, text, &compressedText, index);
-    writeToFile(filename, compressedText);
+    memset(compressedText, 0, sizeof(char) * size);
+    int index = compressFileSize(size, compressedText);
+    index = compressDictionary(codeList, charDict, compressedText, index);
+    index = compressText(charDict, text, compressedText, index);
+    writeToFile(filename, compressedText, size);
 }
 
 int findCompressedSize(CodeList *codeList, int *charDict, char *text) {
@@ -71,7 +90,7 @@ int findCompressedDictionarySize(CodeList *codeList, int *charDict) {
     int size = 1;
     for(int i = 0; i < codeList->size; i++) {
         int key = codeList->root[i].key;
-        int keyBytes = numberBytes(key);
+        int keyBytes = numberBytes(charDict[key]);
         size = size + 2 + keyBytes;
     }
     return size;
@@ -86,6 +105,19 @@ int findCompressedTextSize(int *charDict, char *text) {
     }
     int size = bits / 8 + 1;
     return size;
+}
+
+int compressFileSize(int size, char *compressedText) {
+    int bitBytes = 8;
+    int mask = 255;
+    int intSize = 4;
+
+    for(int i = 0; i < intSize; i++) {
+        compressedText[i] = appendBitsToByte(compressedText + i, size & mask, bitBytes);
+        size = size >> 8;
+    }
+
+    return intSize;
 }
 
 int compressDictionary(CodeList *codeList, int *charDict, char *compressedText, int index) {
@@ -108,11 +140,11 @@ int compressDictionary(CodeList *codeList, int *charDict, char *compressedText, 
 
 int compressDictionaryCode(char *compressedText, int index, int value, int numberBytes) {
     int bitBytes = 8;
-
+    int mask = 255;
+    
     for(int i = 0; i < numberBytes; i++) {
-        int mask = 255;
         compressedText[index++] = appendBitsToByte(compressedText + index, value & mask, bitBytes);
-        mask = mask << bitBytes;
+        value = value >> bitBytes;
     }
 
     return index;
@@ -122,7 +154,7 @@ int compressText(int *charDict, char *text, char *compressedText, int index) {
     int currentBit = 0;
 
     while(*text != '\0') {
-        int key = *compressedText;
+        int key = *text;
         int code = charDict[key];
         index = compressTextCode(compressedText, index, currentBit, code);
         currentBit = (currentBit + numberBits(code)) % 8;
@@ -136,6 +168,7 @@ int compressTextCode(char *compressedText, int index, int currentBit, int code) 
     int bitBytes = 8;
     int codeBitsLeft = numberBits(code);
     int numberBitsInByte = bitBytes - currentBit;
+    
 
     while(codeBitsLeft >= numberBitsInByte) {
         int mask = (1 << (codeBitsLeft - numberBitsInByte)) - 1;
@@ -144,7 +177,7 @@ int compressTextCode(char *compressedText, int index, int currentBit, int code) 
         codeBitsLeft -= numberBitsInByte;
         numberBitsInByte = 8;
     }
-
+    
     compressedText[index] = appendBitsToByte(compressedText + index, code, codeBitsLeft);
     return index;
 }
@@ -185,3 +218,18 @@ void freeCodeList(CodeList *codes) {
     free(codes->root);
     free(codes);
 }
+
+void printString(char *text) {
+    while(*text != '\0') {
+        printf("%c", *text);
+        text += 1;
+    }
+}
+
+void printCharInt(char *text) {
+    while(*text != '\0') {
+        printf("%d\n", *text);
+        text += 1;
+    }
+}
+
