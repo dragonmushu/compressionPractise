@@ -16,11 +16,13 @@ typedef struct CodeList {
 /*
 * Function declarations
 */
-char * readFromFile(char *, int);
+char * readFromFile(char *);
 void writeToFile(char *, char *, int);
 void compressAndWriteToFile(CodeList *, int *, char *, char *);
+void decompressAndWriteToFile(char *, char *);
 int numberBits(int);
 int numberBytes(int);
 CodeList * duplicateCodeList(CodeList *);
 void freeCodeList(CodeList *);
 void printString(char *text);
+int findStringSize(char *);

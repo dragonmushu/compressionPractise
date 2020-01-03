@@ -27,9 +27,11 @@ void freeHuffmanTree(CodeNode *);
 int convertStringToInt(char *);
 int decodeCharDict(char *, int, int *);
 int decodeCode(char *, int);
+char * decodeText(unsigned char *, int *);
+char findKeyFromCode(int *, int);
 
 void huffmanEncode(char *filename) {
-    char *text = readFromFile(filename, -1);
+    char *text = readFromFile(filename);
     CodeList *codeList = textToCharCodes(text);
     CodeList *codeHeap = duplicateCodeList(codeList);
 
@@ -42,60 +44,12 @@ void huffmanEncode(char *filename) {
     freeCodeList(codeList);
     freeHuffmanTree(root);
     free(charDict);
-
+    free(text);
 }
 
 void huffmanDecode(char *filename) {
-    int intSize = 4;
-    char *sizeText = readFromFile(filename, intSize);
-    int size = convertStringToInt(sizeText);
-    char *text = readFromFile(filename, size);
-    int codesSize = text[intSize];
-    int *charDict = malloc(sizeof(int) * 256);
-    memset(charDict, 0, sizeof(int) * 256);
-    int index = intSize + 1;
-    index = decodeCharDict(text + index, codesSize, charDict);
+    decompressAndWriteToFile("compressed.txt", "decompressed.txt");     
 }
-
-int convertStringToInt(char *text) {
-    int bitBytes = 8;
-    int intSize = 4;
-    int value = 0;
-
-    for(int i = 0; i < intSize; i++) {
-        int current =  (text[i]);
-        value = (current << (bitBytes * i)) + value; 
-    }
-    
-    return value;
-}
-
-
-int decodeCharDict(char *text, int size, int *charDict) {
-    int index = 0;
-    for(int i = 0; i < size; i++) {
-        int key = (unsigned char) (text[index]);
-        int numberBytes = (unsigned char) (text[index + 1]);
-        
-        charDict[key] = decodeCode(text + index + 2, numberBytes);
-        printf("%d,%d,%d\n", key, numberBytes, charDict[key]);
-        index = index + 2 + numberBytes;
-    }
-    return index;
-}
-
-int decodeCode(char *text, int bytes) {
-    int bitBytes = 8;
-    int value = 0;
-    for(int i = 0; i < bytes; i++) {
-        
-        int current = (unsigned char) (text[i]);
-        value = (current << (bitBytes * i)) + value;
-    }
-
-    return value;
-}
-
 
 CodeList * textToCharCodes(char *text) {
     int charDict[256] = {0};
@@ -262,11 +216,8 @@ void freeHuffmanTree(CodeNode *root) {
 int main() {
     
     char *filename = "../test.txt";
-    //huffmanDecode("compressed.txt");
+    huffmanDecode("compressed.txt");
     //huffmanEncode(filename);
 
-    char *text = readFromFile(filename, -1);
-    writeToFile("testing.txt", text, 2000);
-    char *test = readFromFile("testing.txt", 2000);
     return 0;
 }

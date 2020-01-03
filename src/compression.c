@@ -10,43 +10,38 @@
 int findCompressedSize(CodeList *codeList, int *charDict, char *text);
 int findCompressedDictionarySize(CodeList *codeList, int *charDict);
 int findCompressedTextSize(int *charDict, char *text);
-int compressFileSize(int, char *);
 int compressDictionary(CodeList *, int *, char *, int);
 int compressDictionaryCode(char *, int, int, int);
 int compressText(int *, char *, char *, int);
 int compressTextCode(char *, int, int, int);
+int decompressDictionary(unsigned char *, int, int *, int);
+int decompressDictionaryCode(unsigned char *, int);
+char * decompressText(unsigned char *, int, int *);
+char findKeyFromCode(int *, int);
 char appendBitsToByte(char *, int, int);
 
 
 /*
 * Function definitions
 */
-char * readFromFile(char *filename, int readBytes) {
-    FILE *fp = fopen(filename, "r");
+char * readFromFile(char *filename) {
+    FILE *fp = fopen(filename, "rb");
     int currentLength = 0;
-    int maxLength = 2200;
+    int maxLength = 100;
     char *fullText = malloc(sizeof(char) * maxLength);
-    int currentByte = 0;
     int currentValue = 0;
 
     if(fp == NULL) {
         printf("Error while opening file %s\n", filename);
     }
 
-    while(currentByte < readBytes || readBytes == -1) {
-        currentValue = fgetc(fp);
-        if(readBytes == -1 && currentValue == EOF) {
-            break; 
-        }
-
+    while((currentValue = fgetc(fp)) != EOF) {
         *(fullText + currentLength) = (char) currentValue;
         currentLength += 1;
         if(currentLength == maxLength) {
             maxLength *= 2;
             fullText = realloc(fullText, sizeof(char) * maxLength);
         }
-        currentByte += 1;
-        printf("%d, %d\n", currentValue, currentByte);
     }
 
     *(fullText + currentLength) = '\0';
@@ -57,7 +52,7 @@ char * readFromFile(char *filename, int readBytes) {
 }
 
 void writeToFile(char *filename, char *text, int size) {
-    FILE *file = fopen(filename, "w");
+    FILE *file = fopen(filename, "wb");
 
     int results = fwrite(text, sizeof(char), size, file);
     if (results == EOF) {
@@ -68,11 +63,9 @@ void writeToFile(char *filename, char *text, int size) {
 
 void compressAndWriteToFile(CodeList *codeList, int *charDict, char *text, char *filename) {
     int size = findCompressedSize(codeList, charDict, text);
-    int intSize = 4;
-    size += intSize;
+    int index = 0;
     char compressedText[size];
     memset(compressedText, 0, sizeof(char) * size);
-    int index = compressFileSize(size, compressedText);
     index = compressDictionary(codeList, charDict, compressedText, index);
     index = compressText(charDict, text, compressedText, index);
     writeToFile(filename, compressedText, size);
@@ -101,19 +94,6 @@ int findCompressedTextSize(int *charDict, char *text) {
     }
     int size = bits / 8 + 1;
     return size;
-}
-
-int compressFileSize(int size, char *compressedText) {
-    int bitBytes = 8;
-    int mask = 255;
-    int intSize = 4;
-
-    for(int i = 0; i < intSize; i++) {
-        compressedText[i] = appendBitsToByte(compressedText + i, size & mask, bitBytes);
-        size = size >> 8;
-    }
-
-    return intSize;
 }
 
 int compressDictionary(CodeList *codeList, int *charDict, char *compressedText, int index) {
@@ -182,6 +162,88 @@ char appendBitsToByte(char *initial, int value, int shift) {
     return (*initial << shift) + value;
 }
 
+void decompressAndWriteToFile(char *compressedFilename, char *uncompressedFilename) {
+    char *compressedText = readFromFile(compressedFilename);
+    int dictionarySize = compressedText[0];
+    int index = 1;
+    int charDict[256];
+    memset(charDict, 0, sizeof(int) * 256);
+    index = decompressDictionary(compressedText, index, charDict, dictionarySize);
+    char *uncompressedText = decompressText(compressedText, index, charDict);
+    printf("\n%d\n", findStringSize(uncompressedText));
+    writeToFile(uncompressedFilename, uncompressedText, findStringSize(uncompressedText));
+}
+
+int decompressDictionary(unsigned char *compressedText, int index, int *charDict, int dictionarySize) {
+    for(int i = 0; i < dictionarySize; i++) {
+        int key = compressedText[index];
+        int numberBytes = compressedText[index + 1];
+        
+        charDict[key] = decompressDictionaryCode(compressedText + index + 2, numberBytes);
+        index = index + 2 + numberBytes;
+    }
+
+    return index;
+}
+
+int decompressDictionaryCode(unsigned char *compressedText, int bytes) {
+    int bitBytes = 8;
+    int value = 0;
+
+    for(int i = 0; i < bytes; i++) {
+        int current = compressedText[i];
+        value = (current << (bitBytes * i)) + value;
+    }
+
+    return value;
+}
+
+char * decompressText(unsigned char *compressedText, int index, int *charDict) {
+    int currentLength = 0;
+    int maxLength = 100;
+    char *uncompressedText = malloc(sizeof(char) * maxLength);
+
+    int currentBit = 7;
+    int currentValue = -1;
+    char foundValue = 0;
+
+    while(currentValue != 0) {
+        if(currentValue == -1) currentValue = 0;
+        currentValue = (currentValue << 1) + ((compressedText[index] >> currentBit) & 1);
+
+        if((foundValue = findKeyFromCode(charDict, currentValue)) != 0) {
+            uncompressedText[currentLength] = foundValue;
+            currentLength += 1;
+            currentValue = -1;
+
+            if(currentLength == maxLength) {
+                maxLength *= 2;
+                uncompressedText = realloc(uncompressedText, sizeof(char) * maxLength);
+            }
+        }
+
+        if(currentBit == 0) {
+            currentBit = 7;
+            index += 1;
+        }
+        else {
+            currentBit -= 1;
+        }
+    }
+
+    *(uncompressedText + currentLength) = '\0';
+    uncompressedText = realloc(uncompressedText, sizeof(char)*(currentLength + 1));
+    return uncompressedText;
+}
+
+char findKeyFromCode(int *charDict, int code) {
+    for(int i = 0; i < 256; i++) {
+        if(charDict[i] == code) return (char) i;
+    }
+
+    return 0;
+}
+
 int numberBits(int value) {
     int count = 0;
     while(value != 0) {
@@ -222,10 +284,9 @@ void printString(char *text) {
     }
 }
 
-void printCharInt(char *text) {
-    while(*text != '\0') {
-        printf("%d\n", *text);
-        text += 1;
-    }
+int findStringSize(char *text) {
+    int i = 0;
+    while(*(text + i) != '\0') i += 1;
+    return i;
 }
 
