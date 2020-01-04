@@ -170,8 +170,8 @@ void decompressAndWriteToFile(char *compressedFilename, char *uncompressedFilena
     memset(charDict, 0, sizeof(int) * 256);
     index = decompressDictionary(compressedText, index, charDict, dictionarySize);
     char *uncompressedText = decompressText(compressedText, index, charDict);
-    printf("\n%d\n", findStringSize(uncompressedText));
     writeToFile(uncompressedFilename, uncompressedText, findStringSize(uncompressedText));
+    free(uncompressedText);
 }
 
 int decompressDictionary(unsigned char *compressedText, int index, int *charDict, int dictionarySize) {

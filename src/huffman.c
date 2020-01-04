@@ -8,6 +8,8 @@
 /*
 * Function Definitions
 */
+void huffmanEncode(char *input, char *output);
+void huffmanDecode(char *input, char *output);
 CodeList * textToCharCodes(char *);
 void charFrequency(char *, int *);
 int obtainValidDictLength(int *);
@@ -24,21 +26,18 @@ int * treeToCharDict(CodeNode *);
 void codifyTree(CodeNode *, int *, int);
 CodeList * duplicateHuffmanDictionary(CodeList *);
 void freeHuffmanTree(CodeNode *);
-int convertStringToInt(char *);
-int decodeCharDict(char *, int, int *);
-int decodeCode(char *, int);
-char * decodeText(unsigned char *, int *);
-char findKeyFromCode(int *, int);
+int tagArg(char *);
 
-void huffmanEncode(char *filename) {
-    char *text = readFromFile(filename);
+
+void huffmanEncode(char *input, char *output) {
+    char *text = readFromFile(input);
     CodeList *codeList = textToCharCodes(text);
     CodeList *codeHeap = duplicateCodeList(codeList);
 
     codeHeap = buildHuffmanHeap(codeHeap);
     CodeNode *root = buildHuffmanTree(codeHeap);
     int *charDict = treeToCharDict(root);
-    compressAndWriteToFile(codeList, charDict, text, "compressed.txt");
+    compressAndWriteToFile(codeList, charDict, text, output);
 
     freeCodeList(codeHeap);
     freeCodeList(codeList);
@@ -47,8 +46,8 @@ void huffmanEncode(char *filename) {
     free(text);
 }
 
-void huffmanDecode(char *filename) {
-    decompressAndWriteToFile("compressed.txt", "decompressed.txt");     
+void huffmanDecode(char *input, char *output) {
+    decompressAndWriteToFile(input, output);     
 }
 
 CodeList * textToCharCodes(char *text) {
@@ -213,11 +212,23 @@ void freeHuffmanTree(CodeNode *root) {
     }
 }
 
-int main() {
+int tagArg(char *arg) {
+    if(findStringSize(arg) != 2 || arg[0] != '-') return -1;
     
-    char *filename = "../test.txt";
-    huffmanDecode("compressed.txt");
-    //huffmanEncode(filename);
+    if(arg[1] == 'c') return 0;
+    if(arg[1] == 'd') return 1;
+    
+    return -1;
+}
 
+int main(int argc, char **argv) {
+    
+    int type = -1;
+    if(argc != 4 || (type = tagArg(argv[1])) == -1) {
+        printf("Invalid Arguments\n");
+        return 0;
+    } 
+    if(type == 0) huffmanEncode(argv[2], argv[3]);
+    else huffmanDecode(argv[2], argv[3]);
     return 0;
 }
